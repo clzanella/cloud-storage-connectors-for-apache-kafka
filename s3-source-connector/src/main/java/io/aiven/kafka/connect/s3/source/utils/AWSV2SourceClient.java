@@ -22,12 +22,15 @@ import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import io.aiven.kafka.connect.config.s3.S3ConfigFragment;
 import io.aiven.kafka.connect.s3.source.config.S3ClientFactory;
 import io.aiven.kafka.connect.s3.source.config.S3SourceConfig;
 
 import org.apache.commons.io.function.IOSupplier;
 import org.apache.commons.lang3.StringUtils;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -43,6 +46,7 @@ public class AWSV2SourceClient {
     private final S3SourceConfig s3SourceConfig;
     private final S3Client s3Client;
     private final String bucketName;
+    private boolean fetchInputStream;
 
     private Predicate<S3Object> filterPredicate = s3Object -> s3Object.size() > 0;
 
@@ -66,6 +70,11 @@ public class AWSV2SourceClient {
         this.s3SourceConfig = s3SourceConfig;
         this.s3Client = s3Client;
         this.bucketName = s3SourceConfig.getAwsS3BucketName();
+
+        Boolean fetchInputStream = s3SourceConfig.getBoolean(S3ConfigFragment.FETCH_INPUT_STREAM);
+        if(fetchInputStream != null && fetchInputStream){
+            this.fetchInputStream = true;
+        }
     }
 
     /**
@@ -111,6 +120,10 @@ public class AWSV2SourceClient {
 
     public IOSupplier<InputStream> getObject(final String objectKey) {
         final GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(bucketName).key(objectKey).build();
+        if(fetchInputStream){
+            final ResponseInputStream<GetObjectResponse> s3ObjectResponse = s3Client.getObject(getObjectRequest, ResponseTransformer.toInputStream());
+            return () -> s3ObjectResponse;
+        }
         final ResponseBytes<GetObjectResponse> s3ObjectResponse = s3Client.getObjectAsBytes(getObjectRequest);
         return s3ObjectResponse::asInputStream;
     }
