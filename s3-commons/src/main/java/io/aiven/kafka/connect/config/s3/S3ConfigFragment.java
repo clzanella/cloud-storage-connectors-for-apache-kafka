@@ -240,7 +240,7 @@ public final class S3ConfigFragment extends ConfigFragment {
                 ConfigDef.Importance.MEDIUM, "Prefix for stored objects, e.g. cluster-1/", GROUP_AWS, ++awsGroupCounter,
                 ConfigDef.Width.NONE, AWS_S3_PREFIX_CONFIG);
 
-        configDef.define(FETCH_INPUT_STREAM, ConfigDef.Type.BOOLEAN, false, ConfigDef.Range.atLeast(1),
+        configDef.define(FETCH_INPUT_STREAM, ConfigDef.Type.BOOLEAN, false, null,
                 ConfigDef.Importance.LOW, "AWS S3 Fetch mode", GROUP_AWS, ++awsGroupCounter,
                 ConfigDef.Width.NONE, FETCH_INPUT_STREAM);
 
