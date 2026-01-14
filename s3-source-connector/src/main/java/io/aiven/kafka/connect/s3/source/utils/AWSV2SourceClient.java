@@ -16,26 +16,25 @@
 
 package io.aiven.kafka.connect.s3.source.utils;
 
-import java.io.InputStream;
-import java.util.Iterator;
-import java.util.Objects;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
-
 import io.aiven.kafka.connect.config.s3.S3ConfigFragment;
 import io.aiven.kafka.connect.s3.source.config.S3ClientFactory;
 import io.aiven.kafka.connect.s3.source.config.S3SourceConfig;
-
 import org.apache.commons.io.function.IOSupplier;
 import org.apache.commons.lang3.StringUtils;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
+
+import java.io.*;
+import java.nio.file.Files;
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 /**
  * Called AWSV2SourceClient as this source client implements the V2 version of the aws client library. Handles all calls
@@ -121,9 +120,23 @@ public class AWSV2SourceClient {
     public IOSupplier<InputStream> getObject(final String objectKey) {
         final GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(bucketName).key(objectKey).build();
         if(fetchInputStream){
-            final ResponseInputStream<GetObjectResponse> s3ObjectResponse = s3Client.getObject(getObjectRequest, ResponseTransformer.toInputStream());
-            return () -> s3ObjectResponse;
+            final ResponseInputStream<GetObjectResponse> s3ObjectResponse = s3Client.getObject(getObjectRequest);
+
+            try {
+                File tempFile = Files.createTempFile("s3file", ".tmp").toFile();
+                try(var writer = new BufferedOutputStream(new FileOutputStream(tempFile))) {
+                    s3ObjectResponse.transferTo(writer);
+                    writer.flush();
+                }
+
+                InputStream is = new ActionOnCloseInputStream(new FileInputStream(tempFile), tempFile::delete);
+                return () -> is;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
         }
+
         final ResponseBytes<GetObjectResponse> s3ObjectResponse = s3Client.getObjectAsBytes(getObjectRequest);
         return s3ObjectResponse::asInputStream;
     }
@@ -136,4 +149,21 @@ public class AWSV2SourceClient {
         this.filterPredicate = this.filterPredicate.and(objectPredicate);
     }
 
+    private static class ActionOnCloseInputStream extends FilterInputStream {
+        private final Runnable action;
+
+        public ActionOnCloseInputStream(InputStream in, Runnable action) {
+            super(in);
+            this.action = action;
+        }
+
+        @Override
+        public void close() throws IOException {
+            try {
+                super.close();
+            } finally {
+                action.run();
+            }
+        }
+    }
 }
