@@ -34,6 +34,7 @@ import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -46,6 +47,7 @@ public class AWSV2SourceClient {
     private final S3Client s3Client;
     private final String bucketName;
     private boolean fetchInputStream;
+    private String fetchInputStreamCacheDir;
 
     private Predicate<S3Object> filterPredicate = s3Object -> s3Object.size() > 0;
 
@@ -73,6 +75,8 @@ public class AWSV2SourceClient {
         Boolean fetchInputStream = s3SourceConfig.getBoolean(S3ConfigFragment.FETCH_INPUT_STREAM);
         if(fetchInputStream != null && fetchInputStream){
             this.fetchInputStream = true;
+
+            this.fetchInputStreamCacheDir = s3SourceConfig.getString(S3ConfigFragment.FETCH_INPUT_STREAM_CACHE_DIR);
         }
     }
 
@@ -123,7 +127,19 @@ public class AWSV2SourceClient {
             final ResponseInputStream<GetObjectResponse> s3ObjectResponse = s3Client.getObject(getObjectRequest);
 
             try {
-                File tempFile = Files.createTempFile("s3file", ".tmp").toFile();
+                File tempFile;
+                String prefix =  "s3file--" + bucketName + "--" + objectKey.replaceAll(Pattern.quote(File.separator), "--");
+
+                if(StringUtils.isEmpty(fetchInputStreamCacheDir)){
+                    tempFile = Files.createTempFile(prefix, ".tmp").toFile();
+                } else {
+                    tempFile = new File(new File(fetchInputStreamCacheDir), prefix);
+
+                    if(!tempFile.getParentFile().exists()){
+                        tempFile.getParentFile().mkdirs();
+                    }
+                }
+
                 try(var writer = new BufferedOutputStream(new FileOutputStream(tempFile))) {
                     s3ObjectResponse.transferTo(writer);
                     writer.flush();

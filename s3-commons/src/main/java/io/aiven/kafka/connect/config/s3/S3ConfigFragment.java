@@ -126,6 +126,7 @@ public final class S3ConfigFragment extends ConfigFragment {
     public static final String AWS_S3_RETRY_BACKOFF_MAX_RETRIES_CONFIG = "aws.s3.backoff.max.retries";
 
     public static final String FETCH_INPUT_STREAM = "aws.s3.fetch.inputstream";
+    public static final String FETCH_INPUT_STREAM_CACHE_DIR = "aws.s3.fetch.inputstream.cache.dir";
     public static final String FETCH_PAGE_SIZE = "aws.s3.fetch.page.size";
     /** @deprecated use SourceConfigFragment.RING_BUFFER_SIZE */
     @Deprecated
@@ -243,6 +244,10 @@ public final class S3ConfigFragment extends ConfigFragment {
         configDef.define(FETCH_INPUT_STREAM, ConfigDef.Type.BOOLEAN, false, null,
                 ConfigDef.Importance.LOW, "AWS S3 Fetch mode", GROUP_AWS, ++awsGroupCounter,
                 ConfigDef.Width.NONE, FETCH_INPUT_STREAM);
+
+        configDef.define(FETCH_INPUT_STREAM_CACHE_DIR, ConfigDef.Type.STRING, null, null,
+                ConfigDef.Importance.LOW, "AWS S3 Fetch cache dir", GROUP_AWS, ++awsGroupCounter,
+                ConfigDef.Width.NONE, FETCH_INPUT_STREAM_CACHE_DIR);
 
         configDef.define(FETCH_PAGE_SIZE, ConfigDef.Type.INT, 10, ConfigDef.Range.atLeast(1),
                 ConfigDef.Importance.MEDIUM, "AWS S3 Fetch page size", GROUP_AWS, ++awsGroupCounter,
